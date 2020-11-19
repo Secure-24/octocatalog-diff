@@ -103,6 +103,7 @@ module OctocatalogDiff
         datatype = opts.fetch(:datatype, '')
         return option_globally_or_per_branch_string(opts) if datatype.is_a?(String)
         return option_globally_or_per_branch_array(opts) if datatype.is_a?(Array)
+        return option_globally_or_per_branch_boolean(opts) if datatype.is_a?(TrueClass) || datatype.is_a?(FalseClass)
         raise ArgumentError, "option_globally_or_per_branch not equipped to handle #{datatype.class}"
       end
 
@@ -175,6 +176,45 @@ module OctocatalogDiff
           options[from_option] ||= []
           options[from_option].concat translate_option(opts[:translator], x)
         end
+      end
+
+      # See description of `option_globally_or_per_branch`. This implements the logic for a boolean value.
+      # @param :parser [OptionParser object] The OptionParser argument
+      # @param :options [Hash] Options hash being constructed; this is modified in this method.
+      # @param :cli_name [String] Name of option on command line (e.g. puppet-binary)
+      # @param :option_name [Symbol] Name of option in the options hash (e.g. :puppet_binary)
+      # @param :desc [String] Description of option on the command line; will have "for the XX branch" appended
+      # @param :datatype [Boolean] Indicates the default value which should be set for this option.
+      def self.option_globally_or_per_branch_boolean(opts)
+        parser = opts.fetch(:parser)
+        options = opts.fetch(:options)
+        cli_name = opts.fetch(:cli_name)
+        option_name = opts.fetch(:option_name)
+        desc = opts.fetch(:desc)
+        datatype = opts.fetch(:datatype)
+
+        flag = cli_name
+        from_option = "from_#{option_name}".to_sym
+        to_option = "to_#{option_name}".to_sym
+        parser.on("--[no-]#{flag}", "#{desc} globally") do |x|
+          translated = translate_option(opts[:translator], x)
+          options[to_option] = translated
+          options[from_option] = translated
+          post_process(opts[:post_process], options)
+        end
+        parser.on("--[no-]to-#{flag}", "#{desc} for the to branch") do |x|
+          translated = translate_option(opts[:translator], x)
+          options[to_option] = translated
+          post_process(opts[:post_process], options)
+        end
+        parser.on("--[no-]from-#{flag}", "#{desc} for the from branch") do |x|
+          translated = translate_option(opts[:translator], x)
+          options[from_option] = translated
+          post_process(opts[:post_process], options)
+        end
+        # Set value to default in datatype, if nothing has been determined yet:
+        options[from_option] = datatype unless options.key?(from_option)
+        options[to_option] = datatype unless options.key?(to_option)
       end
 
       # If a validator was provided, run the validator on the supplied value. The validator is expected to
