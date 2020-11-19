@@ -84,3 +84,34 @@ RSpec.shared_examples 'global array option' do |cli_flag, key|
     expect(result.key?("to_#{key}".to_sym)).to be(false)
   end
 end
+
+# Some options can be set globally or per branch. This is a shortcut to eliminating
+# repetitive testing code.
+# @param cli_flag [String] The CLI flag
+# @param key [Symbol] Key within options that is set to true or false
+# @param default [Boolean] The expected default value if not otherwise set
+RSpec.shared_examples 'global true/false option' do |cli_flag, key, default|
+  it "should set options[:from_#{key}] and options[:to_#{key}] when --#{cli_flag} is set" do
+    result = run_optparse(["--#{cli_flag}"])
+    expect(result["from_#{key}".to_sym]).to eq(true)
+    expect(result["to_#{key}".to_sym]).to eq(true)
+  end
+
+  it "should set options[:from_#{key}] and options[:to_#{key}] when --no-#{cli_flag} is set" do
+    result = run_optparse(["--no-#{cli_flag}"])
+    expect(result["from_#{key}".to_sym]).to eq(false)
+    expect(result["to_#{key}".to_sym]).to eq(false)
+  end
+
+  it 'should use specific values and global values' do
+    result = run_optparse(["--#{cli_flag}", "--no-from-#{cli_flag}"])
+    expect(result["from_#{key}".to_sym]).to eq(false)
+    expect(result["to_#{key}".to_sym]).to eq(true)
+  end
+
+  it 'should use defaults when no default is specified' do
+    result = run_optparse(["--to-#{cli_flag}"])
+    expect(result["from_#{key}".to_sym]).to eq(default)
+    expect(result["to_#{key}".to_sym]).to be(true)
+  end
+end
